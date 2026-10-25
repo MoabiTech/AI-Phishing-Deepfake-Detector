@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E2EE Chat Application</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔐 End-to-End Encrypted Chat</h1>
+            <p class="subtitle">Messages and files are encrypted in your browser before relay.</p>
+        </header>
+
+        <div class="setup-panel" id="setupPanel">
+            <h2>Setup Your Identity</h2>
+            <input type="text" id="username" placeholder="Enter your username" />
+            <button id="generateKeysBtn">Generate Encryption Keys</button>
+            <div id="keyStatus" class="status"></div>
+            <button id="registerBtn" disabled>Connect to Chat</button>
+        </div>
+
+        <div class="chat-panel" id="chatPanel" style="display:none;">
+            <div class="sidebar">
+                <h3>Online Users</h3>
+                <div id="userList" class="user-list"></div>
+                <div class="my-info">
+                    <strong>You:</strong> <span id="myUsername"></span><br>
+                    <small>Keys generated ✓</small>
+                </div>
+            </div>
+
+            <div class="chat-area">
+                <div class="chat-header">
+                    <h3 id="chatWith">Select a user to chat</h3>
+                    <span id="encryptionStatus" class="enc-badge">🔐 Client-side encryption</span>
+                </div>
+                <div id="chatStatus" class="status error" role="alert"></div>
+                <div id="messages" class="messages"></div>
+                <div class="input-area">
+                    <input type="text" id="messageInput" placeholder="Type encrypted message..." disabled />
+                    <button id="sendBtn" disabled>Send</button>
+                    <input type="file" id="fileInput" disabled />
+                    <button id="sendFileBtn" disabled>Send File</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="info-panel">
+            <details>
+                <summary>How E2EE Works (Technical Details)</summary>
+                <ul>
+                    <li><strong>Key Generation:</strong> RSA-OAEP-2048 key pair generated in the browser session</li>
+                    <li><strong>Key Exchange:</strong> Public keys are relayed by the server; private keys stay in browser memory</li>
+                    <li><strong>Message and File Encryption:</strong> AES-256-GCM with a fresh key and 96-bit IV per transfer</li>
+                    <li><strong>Key Wrapping:</strong> RSA-OAEP with SHA-256 wraps the AES key for the recipient</li>
+                    <li><strong>Integrity:</strong> GCM authentication tags reject tampered ciphertext</li>
+                    <li><strong>Limitations:</strong> The demo does not authenticate public keys; a malicious server could substitute keys. Do not use for sensitive real-world communication.</li>
+                </ul>
+            </details>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

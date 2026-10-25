@@ -1,0 +1,32 @@
+END-TO-END ENCRYPTED CHAT APPLICATION
+=====================================
+
+SETUP:
+1. Install dependencies for server:
+   cd server
+   pip install -r ../requirements.txt
+
+2. Start the server:
+   python app.py
+   (Server runs on http://localhost:5000)
+
+3. Open clients:
+   Open e2ee_chat/client/index.html in TWO different browser windows/tabs
+   Or serve the files via a web server
+
+HOW TO TEST:
+1. In Window 1: Enter username, click "Generate Encryption Keys", click "Connect to Chat"
+2. In Window 2: Do the same with different username
+3. Select the other user from the online users list
+4. Send messages - they are end-to-end encrypted
+5. Try sending files/images - also encrypted
+
+SECURITY NOTES:
+- Server logs show "Relaying encrypted message" but cannot decrypt
+- Private keys never leave the browser
+- Each message uses a unique AES-256 key
+- AES-GCM provides authentication
+- Files are encrypted before transmission
+
+FOR SUBMISSION:
+Include this entire e2ee_chat folder with source code.
