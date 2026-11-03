@@ -1,5 +1,7 @@
 # AI Phishing & Deepfake Detector — Assignment Plan & Working Document
 
+> **Implementation status updated 3 November 2026:** The detector and local E2EE chat demo are implemented. All 34 detector tests, 3 chat relay tests, and 2 browser crypto tests pass in the project virtual environment. Image, video, and audio classifiers run by default for matching uploads, including M4A voice notes; representative accuracy and latency validation remain open. Draft Part I and Part II reports are in `reports/`. The Part I risk scenarios are not an audited LUCT status quo: institutional controls and assets still require authorized staff validation. Group names, final report pagination, an authorized logo reference set, model-on performance testing, and standalone executable packaging remain open.
+
 **Course:** DISS3110 — Information Systems Security
 **Institution:** Limkokwing University of Technology (LUCT) — Faculty of Information & Communication Technology
 **Programme:** Diploma in Information Technology, Semester 5
@@ -33,10 +35,10 @@ A complete analysis of the **information security status quo** of any institutio
 | 2 | Identify / assess / control risks; produce processes and documents | NOT STARTED (Part I) |
 | 3 | Context: deepfake phishing (fake CEO voice note, fake LinkedIn profiles) | Understood — informs design |
 | 4 | Research AI-generated phishing email + deepfake media detectors | DONE (see §5) |
-| 5 | **Design and implement** the detector — identify phishing via **imitated text, copied logos, altered media** | PARTIAL — see §3 |
-| 6 | Verify the tool works; report on: (a) extra detection steps, (b) **max file size**, (c) **average time** per email/media + report generation, (d) **AI model(s) used**, (e) support **text, image, video, audio** | NOT DONE — see §3 |
-| 7 | Detect varied media files within a reasonable time | NOT DONE |
-| 8 | Verify the tool **does not corrupt** detected emails and media | PARTIAL — hash recorded, not compared |
+| 5 | **Design and implement** the detector — identify phishing via **imitated text, copied logos, altered media** | IMPLEMENTED WITH EXPERIMENTAL MODEL ESTIMATES — see §3 |
+| 6 | Verify the tool works; report on: (a) extra detection steps, (b) **max file size**, (c) **average time** per email/media + report generation, (d) **AI model(s) used**, (e) support **text, image, video, audio** | PARTIAL — see current benchmark and validation limits in §3 |
+| 7 | Detect varied media files within a reasonable time | PARTIAL — representative image/audio/video samples are tested; added OCR and model inference still need dedicated benchmarks |
+| 8 | Verify the tool **does not corrupt** detected emails and media | IMPLEMENTED — before/after SHA-256 equality verified |
 | 9 | Account of **lessons learnt** (risk management + detector) | NOT STARTED |
 | 10 | Prepare reports and presentations | NOT STARTED |
 
@@ -97,14 +99,14 @@ A complete analysis of the **information security status quo** of any institutio
 | GPU | **None** | CPU-only inference; training must be done on Kaggle/Colab free T4 |
 | Logical CPUs | 8 | ONNX Runtime is a better fit than PyTorch for CPU inference |
 | RAM | 11.8 GiB total, **~1.2 GiB free** | Keep at most 1-2 models resident; load lazily |
-| C: free disk | **6.5 GiB** | Insufficient — move venv and model cache to D: |
-| D: free disk | 174.6 GiB | Use for venv, HF cache and model weights |
+| C: free disk | **~0.06 GiB** | Too little for new model downloads; existing image weights are cached here |
+| D: free disk | **~168 GiB** | Audio classifier cache is routed to `D:\detector\hf-cache` by the Windows launcher |
 | Python | 3.13.7 | Onnxruntime 1.20+ and torch 2.7+ support 3.13 |
 | torch | **not installed** | ~1.5 GB install |
 
 Existing environment: venv at `..\.venv` (Python 3.13.7) with `streamlit 1.66.0`, `pillow 12.3.0`, `opencv-python-headless 5.0.0.93`. All already installed and matching `requirements.txt`.
 
-**Action:** move or recreate the venv on D:, and set `HF_HOME` to a D: path so the HF model cache does not fill C:.
+**Action:** set `HF_HOME` to a D: path for general Hugging Face models; the Windows launcher separately directs the audio classifier and its Xet transfer cache to `D:\detector\hf-cache` unless `DETECTOR_AUDIO_MODEL_CACHE` or `HF_XET_CACHE` is set.
 
 ```bash
 # Proposed layout
@@ -116,36 +118,40 @@ setx HF_HOME "D:/detector/hf-cache"
 
 ## 3. Compliance gap analysis
 
-### 3.1 Part I — Risk Management (75 marks): 0% present
-No artefact in the project relates to this part. Requires institution research plus Risk Identification, Risk Assessment and Risk Control processes and documentation, capped at 21 pages total.
+### 3.1 Part I — Risk Management (75 marks): draft prepared; validation pending
+`reports/part-i-risk-management.md` contains a proposed identification, assessment, and control process with a compact risk register, scoring, owners, and SecSDLC checks. It is explicitly a university-context baseline: internal LUCT evidence and staff interviews were unavailable, so it must not be presented as a verified audit or as proof that controls do not exist. Confirm institutional facts, risk ratings, owners, and treatment decisions with authorized staff; format and check the final 21-page limit.
 
-### 3.2 Part II — End-to-end Encrypted Chat Application: 0% present
-The marking table titles Part II this. Nothing in the repository addresses it. **Confirm scope with the lecturer** — the marking table is misaligned in the PDF text layer, so it is unclear whether Part II is the chat app, the detector, or both, and how the 75 marks split between them.
+### 3.2 End-to-end Encrypted Chat Application: implemented classroom demo
+`e2ee_chat/` contains the browser client, relay server, setup instructions, and tests. The browser uses AES-GCM for payloads and RSA-OAEP to wrap each payload key. Relay and browser-crypto tests pass. Public keys are not authenticated, forward secrecy is not provided, and metadata remains visible; the demo is not production-ready.
 
-Suggested minimum viable scope: server + client, asymmetric key agreement (RSA-2048 or ECC P-256), symmetric session key (AES-256-GCM), per-message nonce, HMAC or AEAD authentication, key derivation via PBKDF2 or HKDF, plus a short design note showing the SecSDLC reasoning. Document the threat model and what is *not* protected (no forward secrecy, no certificate/PKI, metadata visible).
+The brief's marking table and report headings assign Part II differently. The project includes both the detector and chat demo; confirm with the lecturer which components are assessed under each heading.
 
 ### 3.3 Part II — AI Detector technical criteria (44 marks)
 
 | Criterion | Marks | Status | Notes |
 |---|---:|---|---|
-| Employed AI model(s) | 10 | **ZERO** | Regex rules only. `app.py:89` states `"Rule-based prototype; no trained AI classifier configured"`; `app.py:149` states `"NOT DETERMINED"` for all media |
-| Average performance (time, max file, device size) | 10 | **ZERO** | `TEST_PLAN.md` is a blank template — all 9 rows empty |
-| Support for varied media file formats | 6 | PARTIAL | All four categories exist, but the media path crashes 100% and audio is WAV-only |
-| Extra steps for detecting emails and media | 6 | WEAK | Rules + URL extraction only. **No "copied logos" / brand-impersonation detection**, which Q5 explicitly requires |
-| Non-corruption of emails and media | 6 | PARTIAL | `sha256_before` only (`app.py:99`); no after-value, no actual verification |
-| Efficiency and robustness | 6 | **FAILING** | Media module crashes; no measurements |
-| Lessons learnt (Part I and II) | 6 | **ZERO** | Not written |
+| Employed AI model(s) | 10 | IMPLEMENTED, EXPERIMENTAL | Pinned local email classifier (opt-in) and image/video/audio classifiers (default for matching uploads). No project-specific validation metrics; see README/TECHNICAL_DOC |
+| Average performance (time, max file, device size) | 10 | PARTIAL | Benchmark refreshed 3 November 2026 on this machine; report generation is now included. Model-enabled latency and a proven absolute upload ceiling are not established. |
+| Support for varied media file formats | 6 | IMPLEMENTED WITH LIMITS | TXT/EML, common images, WAV/FLAC/OGG/AIFF/M4A, MP4/MOV/AVI/MKV/WEBM; model capabilities vary by media type |
+| Extra steps for detecting emails and media | 6 | IMPLEMENTED WITH LIMITS | Expanded rule checks, OCR text screening, optional classifiers, and pHash comparison against configured logo references |
+| Non-corruption of emails and media | 6 | IMPLEMENTED | Original upload bytes stay in memory; SHA-256 before/after equality is reported |
+| Efficiency and robustness | 6 | PARTIAL | Regression tests and baseline measurements exist; optional model startup/download timing still needs reporting |
+| Lessons learnt (Part I and II) | 6 | DRAFT | `LESSONS_LEARNT.md` and the Part II report include project lessons; the team should add its own experience before submission. |
 
-### 3.4 Deliverables missing
-- **Executable file(s)** — the brief explicitly requires "source code and executable file(s)". No packaging exists. Use PyInstaller.
-- **Part I risk documents** (≤21 pages)
-- **Part II report** (≤2 pages) with cover page, ToC, introduction, detector details, lessons learnt, Harvard bibliography
-- **Lessons learnt** account
-- **Git repository + `.gitignore`** — the current git root is `C:\Users\Administrator` (the entire home directory), so the project is not version-controlled as a unit
+### 3.4 Submission tasks still open
+- Format both Markdown report drafts for submission; fill all group/member details, verify cited institutional facts, and confirm the page limits.
+- Validate the risk baseline with authorized LUCT staff; record evidence, approved owners, and institutional decisions.
+- Add authorized logo reference images if permitted; the current `logos/` directory is empty.
+- Collect a labelled held-out dataset and independently evaluate classifiers; benchmark optional model/OCR paths and the required device/file limits.
+- Build and test a standalone executable only if a verified package can be produced; current supported launch is `start_detector.bat` plus the Python environment.
+- Complete the group responsibility/presentation allocation.
+- A project-local Git repository and `.gitignore` are present.
 
 ---
 
 ## 4. Code defects found (verified by execution)
+
+**Historical baseline:** the defects below were recorded before the detector and chat repair. The media import, Windows video temporary-file handling, WAV/FLAC/OGG/AIFF/M4A support, integrity comparison, URL normalization, and sender parsing have since been fixed. Current code and tests should be treated as the source of truth; not every original suggested remedy or following design proposal has been adopted.
 
 ### D1 — CRITICAL: `NameError` crashes all media inspection
 `app.py:103` calls `os.path.splitext(filename)` but `os` is never imported (`app.py:1-9`). The call sits **outside** the `try:` block that begins at `app.py:104`, so the exception is unhandled and the whole media tab fails.
@@ -288,36 +294,35 @@ You must produce **your own** measured metrics. The model cards' self-reported n
 ## 7. Action plan
 
 ### Phase 0 — Unblock (est. 1-2 hours)
-- [ ] Fix D1: add `import os`
-- [ ] Fix D2: close temp file before OpenCV
-- [ ] Fix D3: add mp3/m4a/ogg/flac via `soundfile`/`librosa` + ffmpeg
-- [ ] Fix D4: add `sha256_after` and a real before/after comparison
-- [ ] Fix D5, D6, D7, D8
-- [ ] Move venv and `HF_HOME` to D:
-- [ ] `git init` in the project folder, add `.gitignore` (`.venv/`, `__pycache__/`, `*.pyc`, `models/`, `hf-cache/`)
+- [x] Fix D1: add `import os`
+- [x] Fix D2: close temp file before OpenCV
+- [ ] Optional extension: add MP3 voice-note decoding; current supported audio types are WAV/FLAC/OGG/AIFF/M4A
+- [x] Fix D4: calculate SHA-256 before/after and compare
+- [x] Fix D5, D6, D7, D8
+- [x] Project-local Git repository and `.gitignore` are present
 
 ### Phase 1 — Models (the 10-mark criterion)
-- [ ] Email classifier behind a `detect_email()` interface, cached with `@st.cache_resource`
-- [ ] Audio anti-spoofing via onnxruntime
-- [ ] Image deepfake model via timm/PyTorch
-- [ ] Video deepfake model via the same frame-level model, sampling frames
-- [ ] Logo pHash module + curated brand-logo bank
-- [ ] Hybrid scoring layer + per-signal explanation in the JSON report
+- [x] Optional pinned local email classifier, cached with `@st.cache_resource`
+- [x] Experimental Wav2Vec2 audio classifier (enabled by default for supported audio uploads)
+- [x] Optional image classifier (experimental SigLIP)
+- [x] Video classification using sampled image frames; not temporal analysis
+- [x] pHash logo matcher implemented; authorized reference-logo bank is still empty
+- [x] Separate rules, OCR/QR, model estimates, and integrity evidence in JSON reports
 
 ### Phase 2 — Originality + evidence
 - [ ] TF-IDF + LogisticRegression baseline on the same data, for a comparison table
 - [ ] LoRA fine-tune script for the phishing model (Kaggle/Colab-ready) on AI-generated phishing data
-- [ ] `benchmark.py` producing max file size and average time per media type on this machine
-- [ ] Fill in every row of `TEST_PLAN.md` with real measurements
+- [x] `benchmark.py` records average analysis, JSON-report, and total time; capacity results are tested samples, not proven maxima
+- [x] Record email, image, audio, video, URL, integrity, and JSON-report checks in `TEST_PLAN.md`
 - [ ] Labelled test set with TP/FP/TN/FN counts and precision/recall/accuracy
 
 ### Phase 3 — Documents and packaging
-- [ ] Part I risk documents (≤21 pages: identification / assessment / control, ≤7 each)
-- [ ] Part II report (≤2 pages)
-- [ ] Lessons learnt (Part I and II)
-- [ ] Harvard bibliography for both parts
-- [ ] LUCT cover pages and table of contents for both parts
-- [ ] PyInstaller `.exe` (plus keep source code for submission)
+- [ ] Format/check the Part I draft against ≤21 pages and validate the risk register with LUCT
+- [ ] Format/check the Part II draft against ≤2 pages and confirm assessment scope with the lecturer
+- [x] Draft lessons learnt for Part I and II
+- [x] Harvard-style reference lists in both report drafts
+- [ ] Fill group/member cover-page fields and validate page counts after formatting
+- [ ] Build/test a standalone executable; current supported delivery is source plus Windows launcher
 - [ ] Group responsibility matrix and presentation allocation
 
 ---

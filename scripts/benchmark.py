@@ -14,7 +14,7 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, PROJECT_ROOT)
 
 try:
-    from app import scan_email, media_metadata, sha256_bytes
+    from app import scan_email, media_metadata, render_report, sha256_bytes
 except Exception as e:
     print(f'Import error: {e}')
     sys.exit(1)
@@ -33,36 +33,53 @@ class Benchmark:
         }
     
     def test_email(self, text, iterations=5):
-        times = []
+        total_times = []
+        analysis_times = []
+        report_times = []
         for i in range(iterations):
-            start = time.perf_counter()
+            total_start = time.perf_counter()
+            analysis_start = time.perf_counter()
             result = scan_email(text)
-            elapsed = time.perf_counter() - start
-            times.append(elapsed)
+            analysis_times.append(time.perf_counter() - analysis_start)
+            report_start = time.perf_counter()
+            render_report({'analysis': result})
+            report_times.append(time.perf_counter() - report_start)
+            total_times.append(time.perf_counter() - total_start)
         return {
             'iterations': iterations,
-            'avg_time_s': round(sum(times)/len(times), 6),
-            'min_time_s': round(min(times), 6),
-            'max_time_s': round(max(times), 6),
+            'avg_time_s': round(sum(total_times)/len(total_times), 6),
+            'avg_analysis_time_s': round(sum(analysis_times)/len(analysis_times), 6),
+            'avg_report_generation_time_s': round(sum(report_times)/len(report_times), 6),
+            'avg_total_processing_time_s': round(sum(total_times)/len(total_times), 6),
+            'min_time_s': round(min(total_times), 6),
+            'max_time_s': round(max(total_times), 6),
             'risk_score': result['risk_score']
         }
     
     def test_media(self, data, filename, mime=''):
-        times = []
+        total_times = []
+        analysis_times = []
+        report_times = []
         iterations = 3
         for i in range(iterations):
-            start = time.perf_counter()
+            total_start = time.perf_counter()
             result = media_metadata(data, filename, mime)
-            elapsed = time.perf_counter() - start
-            times.append(elapsed)
+            analysis_times.append(result['analysis_time_seconds'])
+            report_start = time.perf_counter()
+            render_report(result)
+            report_times.append(time.perf_counter() - report_start)
+            total_times.append(time.perf_counter() - total_start)
         return {
             'filename': filename,
             'size_bytes': len(data),
             'size_mib': round(len(data)/(1024*1024), 4),
             'iterations': iterations,
-            'avg_time_s': round(sum(times)/len(times), 6),
-            'min_time_s': round(min(times), 6),
-            'max_time_s': round(max(times), 6),
+            'avg_time_s': round(sum(total_times)/len(total_times), 6),
+            'avg_analysis_time_s': round(sum(analysis_times)/len(analysis_times), 6),
+            'avg_report_generation_time_s': round(sum(report_times)/len(report_times), 6),
+            'avg_total_processing_time_s': round(sum(total_times)/len(total_times), 6),
+            'min_time_s': round(min(total_times), 6),
+            'max_time_s': round(max(total_times), 6),
             'media_type': result.get('media_type'),
             'sha256': result.get('sha256_before'),
             'integrity_verified': result.get('integrity_verified'),
@@ -70,12 +87,28 @@ class Benchmark:
         }
 
     def test_capacity(self, data, filename, mime=''):
-        result = media_metadata(data, filename, mime)
+        iterations = 3
+        total_times = []
+        analysis_times = []
+        report_times = []
+        result = None
+        for _ in range(iterations):
+            total_start = time.perf_counter()
+            result = media_metadata(data, filename, mime)
+            analysis_times.append(result['analysis_time_seconds'])
+            report_start = time.perf_counter()
+            render_report(result)
+            report_times.append(time.perf_counter() - report_start)
+            total_times.append(time.perf_counter() - total_start)
         self.results['capacity_tests'].append({
             'filename': filename,
             'size_bytes': len(data),
             'size_mib': round(len(data) / (1024 * 1024), 4),
+            'iterations': iterations,
             'media_type': result.get('media_type'),
+            'avg_analysis_time_s': round(sum(analysis_times) / iterations, 6),
+            'avg_report_generation_time_s': round(sum(report_times) / iterations, 6),
+            'avg_total_processing_time_s': round(sum(total_times) / iterations, 6),
             'processed_without_error': not result.get('inspection_error'),
             'integrity_verified': result.get('integrity_verified')
         })
@@ -189,6 +222,14 @@ Your account will be suspended. Click here to verify your password immediately.
         self.results['media_tests'].append(image_result)
         print(f'Tested benchmark.png: {image_result["avg_time_s"]}s')
         self.test_capacity(image_sample, 'capacity.png', 'image/png')
+
+        larger_image_sample = self.make_png_sample(3)
+        larger_image_result = self.test_media(
+            larger_image_sample, 'capacity.png', 'image/png'
+        )
+        self.results['media_tests'].append(larger_image_result)
+        print(f'Tested capacity.png: {larger_image_result["avg_time_s"]}s')
+        self.test_capacity(larger_image_sample, 'capacity.png', 'image/png')
 
         wav_sample = self.make_wav_sample(1)
         wav_result = self.test_media(wav_sample, 'benchmark.wav', 'audio/wav')
